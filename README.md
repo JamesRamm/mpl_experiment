@@ -11,11 +11,11 @@ This experiment provides a `Style` object and reimplements `Line2D` to use it. T
 
 Create a `Line2D` instance and create a `Style` object seperately. Then add the style instance to the object:
 
-  myLine = Line2D([0,1], [0,1])
-  myStyle = Style()
-  myStyle.color = '#484D7A'
+    myLine = Line2D([0,1], [0,1])
+    myStyle = Style()
+    myStyle.color = '#484D7A'
   
-  myLine.style = myStyle
+    myLine.style = myStyle
   
 If no style is specified, it reverts to the defaults in rcParams
 
