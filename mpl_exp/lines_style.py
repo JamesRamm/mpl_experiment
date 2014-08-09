@@ -1,6 +1,8 @@
 from matplotlib.backend_bases import GraphicsContextBase
 from matplotlib.lines import Line2D as mLine2D
+from matplotlib.text import Text as mText
 from matplotlib.artist import allow_rasterization
+from matplotlib.font_manager import FontProperties
 from matplotlib import rcParams
 import numpy as np
 
@@ -8,6 +10,16 @@ import numpy as np
  Note: GraphicsContextBase has a bug in get_linestyle where it requires the arguement 'style'. 
  This argument is not used and should be deleted. For the time being, I reimplemented get_linestyle
 """
+
+class Font(FontProperties):
+    """ Simple class to propertify FontProperties"""
+    family = property(FontProperties.get_family, FontProperties.set_family)
+    style = property(FontProperties.get_style, FontProperties.set_style)
+    variant = property(FontProperties.get_variant, FontProperties.set_variant)
+    weight = property(FontProperties.get_weight, FontProperties.set_weight)
+    stretch = property(FontProperties.get_stretch, FontProperties.set_stretch)
+    size = property(FontProperties.get_size, FontProperties.set_size)
+
 
 class Style(GraphicsContextBase):
 
@@ -99,7 +111,22 @@ class Style(GraphicsContextBase):
             setattr(st, key, value)
 
         return st
+    
+def style_property(name = 'style', expected_type = Style):
+    """ Property for style attributes. Performs type checking """
+    storage_name = '_' + name
 
+    @property
+    def prop(self):
+        return getattr(self, storage_name)
+    @prop.setter
+    def prop(self, value):
+        if isinstance(value, expected_type) or value is None:
+            setattr(self, storage_name, value)
+        else:
+            raise TypeError('{} must be a {}'.format(name, expected_type))
+         
+    return prop
 
 class Line2D(mLine2D):
     """ 
@@ -114,9 +141,12 @@ class Line2D(mLine2D):
     ':':    'dotted'
     }
 
+    style = style_property()
+    markerStyle = style_property('markerStyle')
 
 
     def __init__(self, xdata, ydata,
+                 style = None, markerstyle = None,
                 linewidth=None,  # all Nones default to rc
                 linestyle=None,
                 color=None,
@@ -160,20 +190,8 @@ class Line2D(mLine2D):
                 **kwargs
                 )
 
-        self.style = None
-
-
-    @property
-    def style(self):
-        return self._style
-    @style.setter
-    def style(self, value):
-        if isinstance(value, Style) or value is None:
-            self._style = value
-        else:
-            raise AttributeError("Must be an instance of Style or None")
-
-
+        self.style = style
+        self.markerStyle = markerstyle
     def _defaultStyle(self):
 
         self.style = Style()
@@ -255,4 +273,125 @@ class Line2D(mLine2D):
         """
         renderer.draw_path(style, path, trans)
 
+class Text(mText):
 
+    font = property(mText.get_fontproperties, mText.set_fontproperties)
+    style = style_property()
+
+    def __init__(self,
+                x=0, y=0, text='',
+                style = None,
+                color=None,           # defaults to rc params
+                verticalalignment='baseline',
+                horizontalalignment='left',
+                multialignment=None,
+                fontproperties=None,  # defaults to FontProperties()
+                rotation=None,
+                linespacing=None,
+                rotation_mode=None,
+                **kwargs
+                ):
+
+        super(Text, self).__init__(x, y, text,
+                color,           # defaults to rc params
+                verticalalignment,
+                horizontalalignment,
+                multialignment,
+                fontproperties,  # defaults to FontProperties()
+                rotation,
+                linespacing,
+                rotation_mode,
+                **kwargs)
+
+        self.style = style
+
+    def _defaultStyle(self):
+
+        self.style = Style()
+        #antialiased
+        self.style.antialiased = rcParams['lines.antialiased']
+        #capstyle
+
+        #linewidth
+        self.style.linewidth = rcParams['lines.linewidth']
+        #linestyle
+        linestyle = rcParams['lines.linestyle']
+        if linestyle in self.lineStyles.keys():
+            self.style.linestyle = self.lineStyles[linestyle]
+        elif linestyle in self.lineStyles.values():
+            self.style.linestyle = linestyle
+
+        if self.style.linestyle in ['dashed', 'dashdot', 'dotted']:
+            self.style.capstyle = rcParams['lines.dash_capstyle']
+            self.style.joinstyle = rcParams['lines.dash_joinstyle']
+        else:
+            self.style.capstyle = rcParams['lines.solid_capstyle']
+            self.style.joinstyle = rcParams['lines.solid_joinstyle']
+
+        self.style.snap = self.get_snap()
+
+    @allow_rasterization
+    def draw(self, renderer):
+        """
+        Draws the :class:`Text` object to the given *renderer*.
+        """
+        if renderer is not None:
+            self._renderer = renderer
+        if not self.visible:
+            return
+        if self.text.strip() == '':
+            return
+
+        renderer.open_group('text', self.gid)
+
+        bbox, info, descent = self._get_layout(renderer)
+        trans = self.transform
+
+        # don't use self.get_position here, which refers to text position
+        # in Text, and dash position in TextWithDash:
+        posx = float(self.convert_xunits(self.x))
+        posy = float(self.convert_yunits(self.y))
+
+        posx, posy = trans.transform_point((posx, posy))
+        canvasw, canvash = renderer.get_canvas_width_height()
+
+        # draw the FancyBboxPatch
+        if self._bbox_patch:
+            self._draw_bbox(renderer, posx, posy)
+
+        if self.style == None:
+            self._defaultStyle()
+
+        if self.style.clip_path is None and self.style.clip_rectangle is None:
+            self._set_gc_clip(self.style)
+
+        if self._bbox:
+            bbox_artist(self, renderer, self._bbox)
+        angle = self.rotation
+
+        for line, wh, x, y in info:
+            if not np.isfinite(x) or not np.isfinite(y):
+                continue
+
+            mtext = self if len(info) == 1 else None
+            x = x + posx
+            y = y + posy
+            if renderer.flipy():
+                y = canvash - y
+            clean_line, ismath = self.is_math_text(line)
+
+            if self.path_effects:
+                from matplotlib.patheffects import PathEffectRenderer
+                renderer = PathEffectRenderer(self.path_effects,
+                                              renderer)
+
+            if rcParams['text.usetex']:
+                renderer.draw_tex(self.style, x, y, clean_line,
+                                  self.font, angle, mtext=mtext)
+            else:
+                renderer.draw_text(self.style, x, y, clean_line,
+                                   self.font, angle,
+                                   ismath=ismath, mtext=mtext)
+
+        self.style.restore()
+        renderer.close_group('text')
