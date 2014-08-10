@@ -24,7 +24,7 @@ from matplotlib.figure import Figure
 import numpy as np
 import os
 
-outputFolder = "C:\\"
+outputFolder = "/home/james/"
 
 # Setup the figure and axes
 fig = Figure()
@@ -52,8 +52,8 @@ canvas.print_png(os.path.join(outputFolder, "defaultStyle.png"))
 # Now lets make a 'Style' object, change the settings we want and set the style property of our line to this object
 style = Style()
 
-style.color = '#484D7A' # A nice blue
-style.alpha = 0.7
+style.color = 'black' # A nice blue
+style.alpha = 0.9
 style.linewidth = 3.2 # Quite fat!
 style.capstyle = 'round'
 style.snap = False
@@ -61,7 +61,7 @@ style.linestyle = "dashed"
 
 # We could initialise the style object with a dictionary, using the from_dict class method:
 styleDict = {'color': '#484D7A',
-           'alpha': 0.7,
+           'alpha': 0.9,
            'linewidth': 3.2}
 altStyle = Style.from_dict(styleDict)
 
@@ -81,7 +81,7 @@ ax.lines = []
 
 # The 'style' of Text is controlled by two objects: Style and Font. 
 # Make a Font object that we will use for all text
-fnt = Font("Arial", size = 14)
+fnt = Font("Ubuntu", size = 14)
 
 # make a text object, reusing the style object we previously created...because we are lazy!
 txt = Text(0.5, 0.5, "Hello", style = style, fontproperties = fnt)

@@ -67,11 +67,11 @@ class Style(GraphicsContextBase):
     @dashes.setter
     def dashes(self, value):
         if value is not None:
-            dl = np.asarray(dashlist)
+            dl = np.asarray(value)
             if np.any(dl <= 0.0):
                 raise ValueError("All values in the dash list must be positive")
 
-        self._dashed[1] = dash_list
+        self._dashed[1] = value
 
     #Color property is an alternative to 'set_foreground'. It does the same thing, but makes no allowances for providing a colour already in RGBA format..
     @property
@@ -277,6 +277,9 @@ class Text(mText):
 
     font = property(mText.get_fontproperties, mText.set_fontproperties)
     style = style_property()
+    text = property(mText.get_text, mText.set_text)
+    gid = property(mText.get_gid, mText.set_gid)
+    transform = property(mText.get_transform, mText.set_transform)
 
     def __init__(self,
                 x=0, y=0, text='',
@@ -337,7 +340,7 @@ class Text(mText):
         """
         if renderer is not None:
             self._renderer = renderer
-        if not self.visible:
+        if not self.get_visible():
             return
         if self.text.strip() == '':
             return
@@ -349,8 +352,8 @@ class Text(mText):
 
         # don't use self.get_position here, which refers to text position
         # in Text, and dash position in TextWithDash:
-        posx = float(self.convert_xunits(self.x))
-        posy = float(self.convert_yunits(self.y))
+        posx = float(self.convert_xunits(self._x))
+        posy = float(self.convert_yunits(self._y))
 
         posx, posy = trans.transform_point((posx, posy))
         canvasw, canvash = renderer.get_canvas_width_height()
@@ -367,7 +370,7 @@ class Text(mText):
 
         if self._bbox:
             bbox_artist(self, renderer, self._bbox)
-        angle = self.rotation
+        angle = self.get_rotation()
 
         for line, wh, x, y in info:
             if not np.isfinite(x) or not np.isfinite(y):
@@ -380,9 +383,9 @@ class Text(mText):
                 y = canvash - y
             clean_line, ismath = self.is_math_text(line)
 
-            if self.path_effects:
+            if self.get_path_effects():
                 from matplotlib.patheffects import PathEffectRenderer
-                renderer = PathEffectRenderer(self.path_effects,
+                renderer = PathEffectRenderer(self.get_path_effects(),
                                               renderer)
 
             if rcParams['text.usetex']:
@@ -395,3 +398,4 @@ class Text(mText):
 
         self.style.restore()
         renderer.close_group('text')
+	
